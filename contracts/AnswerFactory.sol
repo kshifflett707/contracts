@@ -7,39 +7,39 @@ import "./QuestionFactory.sol";
  */
 contract AnswerFactory is QuestionFactory {
 
-    /*
-     * NewAnswer is emited whenever a NewAnswer and it's addition to the bounty is successfully posted.
-     */
-    event NewAnswer(uint questionId, uint answerId, address answerer);
+    uint public currentStake = 10000000000000 wei;
 
-    /*
-     * Answer struct tracks owner and upvotes. 
-     */
     struct Answer {
-        address owner;
-        uint upvotes;
+        address giver;
+        uint stake;
+        uint qid;
+        uint score;
     }
 
-    /*
-     * answerIdToQuesionsId can take any answerId and map it to it's corresponding question.
-     */
-    mapping(uint => uint) public answerIdToQuestionId;
+    mapping(uint => Answer) public answerStruct;
+    uint[] public answerList;
 
-    /*
-     * similar to questions all answers are stored in an array as they are succesfully posted
-     */
-    Answer[] public answers;
+    function createAnswer(uint _id, uint _qid) public payable returns (uint index) {
+        require(msg.value > currentStake, "Must stake more than the last answer");
+        currentStake = msg.value;
+        answerStruct[_id].giver = msg.sender;
+        answerStruct[_id].stake = msg.value;        
+        answerStruct[_id].qid = _qid;
+        answerStruct[_id].score = 0;
+        return answerList.push(_id)-1;
+    }
 
-    /*
-     * createAnswer checks to make sure the min value is sent.  Then it pushes the answer to answers and adds
-     * it to the mapping.  Finally it emits that a new answer was successfully posted.
-     */
-    function createAnswer(uint _questionId) public payable questionOpen(_questionId) {
-        require(msg.value >= questions[_questionId].answerFee);
-        
-        uint id = answers.push(Answer(msg.sender, 0)) - 1;
-        answerIdToQuestionId[id] = _questionId;
-        
-        emit NewAnswer(_questionId, id, msg.sender);
+    function answerCount(uint _qid) public view returns (uint count) {
+        count = 0;
+        for (uint i = 0; i < answerList.length; i++) {
+            if (answerStruct[answerList[i]].qid == _qid) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    function getQuestionId(uint _id) public view returns (uint qid) {
+        return answerStruct[_id].qid;
     }
 }

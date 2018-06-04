@@ -1,5 +1,5 @@
-const UpVote = artifacts.require('./UpVote.sol');
+const QuestionFactory = artifacts.require('./QuestionFactory.sol');
 
 module.exports = function(deployer) {
-  deployer.deploy(UpVote);
+  deployer.deploy(QuestionFactory);
 };

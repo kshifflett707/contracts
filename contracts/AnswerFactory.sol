@@ -1,53 +1,113 @@
-// pragma solidity ^0.4.23;
+pragma solidity ^0.4.23;
 
-// import "./QuestionFactory.sol";
 
-// /*
-//  * the AnswerFactory allows user to post answers to questions
-//  */
-// contract AnswerFactory is QuestionFactory {
+contract Simple {
+    
+    struct Question {
+        uint id;
+        mapping(uint => Answer) answerStructs;
+        address user;
+        uint bounty;
+        uint endTime;
+        uint bestAnswerId;
+    }
 
-//     uint public currentStake = 10000000000000 wei;
+    mapping(uint => Question) private questionStructs;
 
-//     struct Answer {
-//         address giver;
-//         uint stake;
-//         uint qid;
-//         uint score;
-//     }
+    struct Answer {
+        uint id;
+        uint questionId;
+        mapping(address => Voter) voterStructs;
+        address user;
+        uint score;       
+    }
 
-//     mapping(uint => uint[]) public questionIdToAnswerIds;
-//     mapping(uint => Answer) public answerStruct;
-//     uint[] public answerList;
+    mapping(uint => Answer) private answerStructs;
 
-//     function createAnswer(uint _id, uint _qid) public payable returns (uint index) {
-//         require(getAnswers(_qid).length <= 5, "Only 5 answers per question");
-//         require(msg.value > currentStake, "Must stake more than the last answer");
-//         currentStake = msg.value;
-//         answerStruct[_id].giver = msg.sender;
-//         answerStruct[_id].stake = msg.value;        
-//         answerStruct[_id].qid = _qid;
-//         answerStruct[_id].score = 0;
-//         return answerList.push(_id)-1;
-//     }
+    struct Voter {
+        bool voted;
+    }
 
-//     function answerCount(uint _qid) public view returns (uint count) {
-//         count = 0;
-//         for (uint i = 0; i < answerList.length; i++) {
-//             Answer memory answer = answerStruct[answerList[i]];
-//             if (answer.qid == _qid) {
-//                 count++;
-//             }
-//         }
-//         return count;
-//     }
+    function isQuestion(uint qid) private view returns (bool isIndeed) {
+        return (questionStructs[qid].id == qid);
+    }
 
-//     function getAnswers(uint _qid) public view returns (uint[]) {
-//         uint[] memory _questionAnswers = questionIdToAnswerIds[_qid];
-//         return _questionAnswers;
-//     }
+    function getQuestion(uint qid) public view returns (uint id, address user, uint bounty) {
+        return (
+            questionStructs[qid].id,
+            questionStructs[qid].user,
+            questionStructs[qid].bounty            
+        );
+    }
 
-//     function getQuestionId(uint _id) public view returns (uint qid) {
-//         return answerStruct[_id].qid;
-//     }
-// }
+    function isAnswer(uint aid) private view returns (bool isIndeed) {
+        return (answerStructs[aid].id == aid);
+    }
+
+    function getAnswer(uint aid) public view returns (uint id, address user, uint score, uint questionId) {
+        return (
+            answerStructs[aid].id,
+            answerStructs[aid].user,
+            answerStructs[aid].score,
+            answerStructs[aid].questionId                                    
+        );
+    }
+
+    function hasVoted(address voter, uint aid) public view returns (bool hasIndeed) {
+        return (answerStructs[aid].voterStructs[voter].voted);
+    }
+
+    function createQuestion(uint qid) public payable returns(bool success) {
+        require(!isQuestion(qid));
+        questionStructs[qid].id = qid;        
+        questionStructs[qid].bounty = msg.value;
+        questionStructs[qid].user = msg.sender;
+        questionStructs[qid].endTime = now + 7 days;        
+        return true;
+    }
+
+    function createAnswer(uint aid, uint qid) public returns(bool success) {
+        require(isQuestion(qid));  
+        require(!isAnswer(aid));
+        //require(questionStructs[qid].user != msg.sender);    
+        answerStructs[aid].id = aid;                         
+        answerStructs[aid].user = msg.sender;
+        answerStructs[aid].questionId = qid;     
+        questionStructs[qid].answerStructs[aid] = answerStructs[aid];
+        return true;
+    }
+
+    function upVote(uint aid) public returns(bool success) {
+        //require(!hasVoted(msg.sender, aid));
+        //require(answerStructs[aid].user != msg.sender);
+        Question memory question = questionStructs[answerStructs[aid].questionId];
+        uint bestScore = answerStructs[question.bestAnswerId].score;
+        answerStructs[aid].score += 1;
+        answerStructs[aid].voterStructs[msg.sender].voted = true;
+        if (answerStructs[aid].score > bestScore) {
+            questionStructs[getQuestionFromAnswer(aid)].bestAnswerId = aid;
+        }       
+        return true;
+    }
+
+    function getQuestionFromAnswer(uint aid) private view returns(uint index) { 
+        return answerStructs[aid].questionId;
+    }
+
+    function increaseBounty(uint qid) public payable returns(bool success) {
+        require(isQuestion(qid)); 
+        questionStructs[qid].bounty += msg.value;
+        return true;
+    }
+    
+    function payout(uint qid) public returns (bool success) {
+        Question memory question = questionStructs[qid];
+        if (now < question.endTime) {
+            require(question.user == msg.sender);
+        }
+        Answer memory bestAnswer = answerStructs[question.bestAnswerId];
+        bestAnswer.user.transfer(question.bounty);
+        return true;
+    }
+
+}

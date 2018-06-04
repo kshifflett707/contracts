@@ -23,6 +23,7 @@ contract QuestionFactory is Owned {
         address user;
         uint bounty;
         uint endTime;
+        uint bestAnswerId;
     }
 
     mapping(uint => Question) private questionStructs;
@@ -108,12 +109,23 @@ contract QuestionFactory is Owned {
         require(!hasVoted(msg.sender, aid), "Cannot vote twice");
         //require(answerStructs[aid].user != msg.sender, "Cannot upvote your own answer");
         answerStructs[aid].score += 1;
-        answerStructs[aid].voterStructs[msg.sender].voted = true;       
+        answerStructs[aid].voterStructs[msg.sender].voted = true;
+        if (answerStructs[aid].score > answerStructs[getBestAnswerFromQuestion(getQuestionFromAnswer(aid))].score) {
+            questionStructs[getQuestionFromAnswer(aid)].bestAnswerId = aid;
+        }       
         return true;
     }
 
     function getAnswerFromQuestion(uint qid, uint aid) private view returns(uint index) { 
         return questionStructs[qid].answerList[aid];
+    }
+
+    function getQuestionFromAnswer(uint aid) private view returns(uint index) { 
+        return answerStructs[aid].questionId;
+    }
+
+    function getBestAnswerFromQuestion(uint qid) private view returns(uint index) { 
+        return questionStructs[qid].bestAnswerId;
     }
 
     function increaseBounty(uint qid) public payable returns(bool success) {
@@ -134,13 +146,7 @@ contract QuestionFactory is Owned {
         if (now < questionStructs[qid].endTime) {
             require(questionStructs[qid].user == msg.sender, "Only the question owner can payout bounty first 7 days");
         }
-        uint bestAnswerId = getAnswerFromQuestion(qid, 0);
-        for (uint i = 1; i < getQuestionAnswersCount(qid); i++) {
-            if (getAnswerScore(getAnswerFromQuestion(qid, i)) > getAnswerScore(bestAnswerId)) {
-                bestAnswerId = getAnswerFromQuestion(qid, i);
-            }
-        }
-        answerStructs[bestAnswerId].user.transfer(questionStructs[qid].bounty);
+        answerStructs[getBestAnswerFromQuestion(qid)].user.transfer(questionStructs[qid].bounty);
         return true;
     }
 
